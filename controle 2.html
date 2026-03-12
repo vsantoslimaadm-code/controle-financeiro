@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Controle Financeiro</title>
+
+<style>
+body{font-family:Arial;background:#eef1f5;margin:0;padding:20px}
+.container{max-width:1100px;margin:auto}
+h1{text-align:center}
+.card{background:white;padding:20px;border-radius:10px;margin-bottom:20px;box-shadow:0 5px 15px rgba(0,0,0,0.1)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+input,textarea,select,button{padding:10px;border-radius:6px;border:1px solid #ccc;font-size:15px;width:100%}
+button{background:#2563eb;color:white;font-weight:bold;border:none;cursor:pointer}
+button:hover{background:#1e40af}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px}
+.summary div{background:#f8fafc;padding:15px;border-radius:8px;text-align:center}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:10px;border-bottom:1px solid #ddd;text-align:left}
+th{background:#f1f5f9}
+.actions button{background:#ef4444}
+.actions button:hover{background:#b91c1c}
+.filter{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>💰 Sistema de Controle de Despesas</h1>
+
+<div class="card">
+<h3>Adicionar Despesa</h3>
+
+<div class="grid">
+<input id="nome" placeholder="Nome da pessoa">
+<input id="valor" type="text" placeholder="Valor (R$)" oninput="formatarMoeda(this)">
+<input id="data" type="date">
+<select id="categoria">
+<option value="Alimentação">Alimentação</option>
+<option value="Transporte">Transporte</option>
+<option value="Serviços">Serviços</option>
+<option value="Pessoal">Pessoal</option>
+<option value="Outros">Outros</option>
+</select>
+</div>
+
+<textarea id="descricao" placeholder="Descrição da despesa"></textarea>
+
+<button type="button" onclick="adicionar()">Adicionar</button>
+
+</div>
+
+<div class="card">
+<h3>Resumo</h3>
+
+<div class="summary">
+<div>
+<p>Total Geral</p>
+<h2 id="total">0</h2>
+</div>
+
+<div>
+<p>Total do Mês</p>
+<h2 id="mes">0</h2>
+</div>
+
+<div>
+<p>Total da Semana</p>
+<h2 id="semana">0</h2>
+</div>
+
+<div>
+<p>Quantidade</p>
+<h2 id="quantidade">0</h2>
+</div>
+</div>
+</div>
+
+<div class="card">
+<h3>Filtros</h3>
+
+<div class="filter">
+<input type="date" id="filtroData">
+<select id="filtroCategoria">
+<option value="">Todas categorias</option>
+<option value="Alimentação">Alimentação</option>
+<option value="Transporte">Transporte</option>
+<option value="Serviços">Serviços</option>
+<option value="Pessoal">Pessoal</option>
+<option value="Outros">Outros</option>
+</select>
+<button onclick="filtrar()">Aplicar Filtro</button>
+<button onclick="limparFiltro()">Limpar</button>
+</div>
+
+</div>
+
+<div class="card">
+<h3>Registros</h3>
+
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Nome</th>
+<th>Categoria</th>
+<th>Valor</th>
+<th>Descrição</th>
+<th>Ações</th>
+</tr>
+</thead>
+<tbody id="lista"></tbody>
+</table>
+
+</div>
+
+<div class="card">
+<button onclick="exportarCSV()">Exportar para Excel (CSV)</button>
+<button onclick="limparTudo()">Apagar Todos Dados</button>
+</div>
+
+</div>
+
+<script>
+
+let despesas = JSON.parse(localStorage.getItem("despesas")) || []
+
+function salvar(){
+localStorage.setItem("despesas",JSON.stringify(despesas))
+}
+
+function adicionar(){
+
+// adiciona imediatamente no sistema sem recarregar a página
+
+let nome=document.getElementById("nome").value
+let valorTexto=document.getElementById("valor").value.replace(/[^0-9,]/g,'').replace(',','.');
+let valor=Number(valorTexto)
+let data=document.getElementById("data").value
+let categoria=document.getElementById("categoria").value
+let descricao=document.getElementById("descricao").value
+
+if(nome==""||valor==""||data==""){
+alert("Preencha os campos obrigatórios")
+return
+}
+
+let item={
+ id:Date.now(),
+ nome,
+ valor,
+ data,
+ categoria,
+ descricao
+}
+
+ despesas.push(item)
+ salvar()
+ limparCampos()
+ atualizar()
+}
+
+function limparCampos(){
+ document.getElementById("nome").value=""
+ document.getElementById("valor").value=""
+ document.getElementById("descricao").value=""
+}
+
+function deletar(id){
+ despesas=despesas.filter(d=>d.id!==id)
+ salvar()
+ atualizar()
+}
+
+function atualizar(listaCustom){
+
+let lista=listaCustom||despesas
+
+let tbody=document.getElementById("lista")
+ tbody.innerHTML=""
+
+let total=0
+
+lista.forEach(d=>{
+
+let linha=tbody.insertRow()
+
+linha.insertCell(0).innerHTML=d.data
+linha.insertCell(1).innerHTML=d.nome
+linha.insertCell(2).innerHTML=d.categoria
+linha.insertCell(3).innerHTML="R$ "+d.valor
+linha.insertCell(4).innerHTML=d.descricao
+
+let acoes=linha.insertCell(5)
+acoes.className="actions"
+
+let btn=document.createElement("button")
+btn.innerText="Excluir"
+btn.onclick=()=>deletar(d.id)
+
+acoes.appendChild(btn)
+
+ total+=d.valor
+
+})
+
+let hoje=new Date()
+
+let totalMes=despesas.filter(d=>{
+ let dt=new Date(d.data)
+ return dt.getMonth()==hoje.getMonth()&&dt.getFullYear()==hoje.getFullYear()
+}).reduce((a,b)=>a+b.valor,0)
+
+let totalSemana=despesas.filter(d=>{
+ let dt=new Date(d.data)
+ let diff=(hoje-dt)/(1000*60*60*24)
+ return diff<=7
+}).reduce((a,b)=>a+b.valor,0)
+
+ document.getElementById("total").innerText="R$ "+total
+ document.getElementById("mes").innerText="R$ "+totalMes
+ document.getElementById("semana").innerText="R$ "+totalSemana
+ document.getElementById("quantidade").innerText=despesas.length
+
+}
+
+function filtrar(){
+
+let data=document.getElementById("filtroData").value
+let categoria=document.getElementById("filtroCategoria").value
+
+let resultado=despesas.filter(d=>{
+
+let ok=true
+
+if(data!="") ok=ok&&d.data==data
+if(categoria!="") ok=ok&&d.categoria==categoria
+
+return ok
+
+})
+
+ atualizar(resultado)
+
+}
+
+function limparFiltro(){
+ atualizar()
+}
+
+function exportarCSV(){
+
+let csv="Data,Nome,Categoria,Valor,Descricao\n"
+
+ despesas.forEach(d=>{
+ csv+=`${d.data},${d.nome},${d.categoria},${d.valor},${d.descricao}\n`
+ })
+
+ let blob=new Blob([csv],{type:"text/csv"})
+ let url=URL.createObjectURL(blob)
+ let a=document.createElement("a")
+ a.href=url
+ a.download="despesas.csv"
+ a.click()
+
+}
+
+function limparTudo(){
+ if(confirm("Tem certeza?")){
+ despesas=[]
+ salvar()
+ atualizar()
+ }
+}
+
+atualizar()
+
+</script>
+
+</body>
+</html>
